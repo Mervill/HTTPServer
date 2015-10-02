@@ -42,12 +42,20 @@ namespace HTTPServer
             _listener.Start();
 
             BootTime = DateTime.UtcNow.ToUniversalTime();
-            while (_listener != null && _listener.IsListening)
+
+            try
             {
-                var httpctx = await _listener.GetContextAsync();
+                while (_listener != null && _listener.IsListening)
+                {
+                    var httpctx = await _listener.GetContextAsync();
 #pragma warning disable CS4014
-                ProcessContext(httpctx);
+                    ProcessContext(httpctx);
 #pragma warning restore CS4014
+                }
+            }catch(Exception except)
+            {
+                Console.WriteLine("[Exception::Start]");
+                Console.WriteLine(except);
             }
         }
 
@@ -72,7 +80,7 @@ namespace HTTPServer
             }
             catch (Exception ex)
             {
-                ReturnException(httpContext.Response, ex);
+                await ReturnException(httpContext.Response, ex);
             }
             finally
             {
@@ -104,23 +112,20 @@ namespace HTTPServer
             await resp.OutputStream.WriteAsync(buf, 0, buf.Length);
         }
 
-        void ReturnException(HttpListenerResponse resp, Exception e)
+        async Task ReturnException(HttpListenerResponse resp, Exception ex)
         {
             try
             {
-                byte[] buf = Encoding.UTF8.GetBytes(e.ToString());
-
                 resp.StatusCode = (int)HttpStatusCode.InternalServerError;
                 resp.ContentType = "application/json; charset=utf-8";
                 resp.ContentEncoding = Encoding.UTF8;
-                resp.ContentLength64 = buf.Length;
-
-                resp.OutputStream.Write(buf, 0, buf.Length);
+                await WriteBuffer(resp, ex.ToString());
             }
-            catch (Exception ex)
+            catch (Exception except)
             {
                 //log.Error(ex);
-                Console.WriteLine(ex);
+                Console.WriteLine("[Exception::ReturnException]");
+                Console.WriteLine(except);
             }
         }
 
