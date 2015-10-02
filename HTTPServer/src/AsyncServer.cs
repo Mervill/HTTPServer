@@ -80,7 +80,7 @@ namespace HTTPServer
             }
             catch (Exception ex)
             {
-                await ReturnException(httpContext.Response, ex);
+                ReturnException(httpContext.Response, ex);
             }
             finally
             {
@@ -112,14 +112,17 @@ namespace HTTPServer
             await resp.OutputStream.WriteAsync(buf, 0, buf.Length);
         }
 
-        async Task ReturnException(HttpListenerResponse resp, Exception ex)
+        void ReturnException(HttpListenerResponse resp, Exception ex)
         {
             try
             {
                 resp.StatusCode = (int)HttpStatusCode.InternalServerError;
                 resp.ContentType = "application/json; charset=utf-8";
                 resp.ContentEncoding = Encoding.UTF8;
-                await WriteBuffer(resp, ex.ToString());
+
+                byte[] buf = Encoding.UTF8.GetBytes(ex.ToString());
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
             }
             catch (Exception except)
             {
