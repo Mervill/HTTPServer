@@ -94,6 +94,14 @@ namespace HTTPServer
             var asyncio = 0;
             ThreadPool.GetMaxThreads(out workers, out asyncio);
 
+            if(workers != Environment.ProcessorCount)
+            {
+                var pcout = Environment.ProcessorCount;
+                ThreadPool.SetMinThreads(pcout, pcout);
+                ThreadPool.SetMaxThreads(pcout, pcout);
+            }
+
+
             var now = DateTime.UtcNow.ToUniversalTime();
 
             StringBuilder sb = new StringBuilder();
