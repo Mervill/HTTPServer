@@ -100,14 +100,14 @@ namespace HTTPServer
                 ThreadPool.SetMinThreads(pcout, pcout);
                 ThreadPool.SetMaxThreads(pcout, pcout);
             }
-
-
+            
             var now = DateTime.UtcNow.ToUniversalTime();
 
             StringBuilder sb = new StringBuilder();
             sb.AppendFormat("System booted at {0}, it is now {1}\n", BootTime, now);
             sb.AppendFormat("Thats {0} total seconds!\n", (now - BootTime).TotalSeconds);
             sb.AppendFormat("There are {0} workers and {1} async I/O threads, there are {2} processors.\n", workers, asyncio, Environment.ProcessorCount);
+            if (workers != Environment.ProcessorCount) sb.Append("Attempted to force the thread count.");
             sb.AppendFormat("There have been {0} total requests\n", total_reqs);
 
             await WriteBuffer(httpContext.Response, sb.ToString());
