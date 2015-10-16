@@ -47,6 +47,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SimpleGet.cs" />
     <Compile Include="src\AsyncServer.cs" />
     <Compile Include="src\IRoute.cs" />
     <Compile Include="src\RouteMatch.cs" />

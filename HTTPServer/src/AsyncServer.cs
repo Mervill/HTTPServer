@@ -35,7 +35,7 @@ namespace HTTPServer
             };
         }
 
-        public async Task Start()
+        public async void Start()
         {
             Routes = Routes.OrderBy((r) => r.Priority).ToList();
 
@@ -80,7 +80,8 @@ namespace HTTPServer
             }
             catch (Exception ex)
             {
-                ReturnException(httpContext.Response, ex);
+                //ReturnException(httpContext.Response, ex);
+                await ReturnExceptionAsync(httpContext.Response, ex);
             }
             finally
             {
@@ -107,7 +108,7 @@ namespace HTTPServer
             sb.AppendFormat("System booted at {0}, it is now {1}\n", BootTime, now);
             sb.AppendFormat("Thats {0} total seconds!\n", (now - BootTime).TotalSeconds);
             sb.AppendFormat("There are {0} workers and {1} async I/O threads, there are {2} processors.\n", workers, asyncio, Environment.ProcessorCount);
-            if (workers != Environment.ProcessorCount) sb.Append("Attempted to force the thread count.");
+            if (workers != Environment.ProcessorCount) sb.Append("Attempted to force the thread count.\n");
             sb.AppendFormat("There have been {0} total requests\n", total_reqs);
 
             await WriteBuffer(httpContext.Response, sb.ToString());
@@ -131,6 +132,23 @@ namespace HTTPServer
                 byte[] buf = Encoding.UTF8.GetBytes(ex.ToString());
                 resp.ContentLength64 = buf.Length;
                 resp.OutputStream.Write(buf, 0, buf.Length);
+            }
+            catch (Exception except)
+            {
+                //log.Error(ex);
+                Console.WriteLine("[Exception::ReturnException]");
+                Console.WriteLine(except);
+            }
+        }
+
+        async Task ReturnExceptionAsync(HttpListenerResponse resp, Exception ex)
+        {
+            try
+            {
+                resp.StatusCode = (int)HttpStatusCode.InternalServerError;
+                resp.ContentType = "application/json; charset=utf-8";
+                resp.ContentEncoding = Encoding.UTF8;
+                await WriteBuffer(resp, ex.ToString());
             }
             catch (Exception except)
             {
