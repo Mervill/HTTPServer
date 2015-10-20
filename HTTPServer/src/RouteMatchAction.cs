@@ -12,14 +12,8 @@ namespace HTTPServer
     {
         public Action<HttpListenerContext> Action;
         public Func<HttpListenerContext, Task> ActionAsync;
-
-        protected override void OnMatch(HttpListenerContext context)
-        {
-            if (Action != null) { Action(context); return; }
-            throw new InvalidOperationException("There is no action defined for this route!");
-        }
-
-        protected override async Task OnMatchAsync(HttpListenerContext context)
+        
+        protected override async Task OnMatch(HttpListenerContext context)
         {
             if (ActionAsync != null) { await ActionAsync(context); return; }
             throw new InvalidOperationException("There is no action defined for this route!");

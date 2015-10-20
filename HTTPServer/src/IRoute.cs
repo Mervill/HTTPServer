@@ -11,8 +11,6 @@ namespace HTTPServer
     public interface IRoute
     {
         int Priority { get; }
-        bool IsAsync { get; }
-        bool Execute(HttpListenerContext context);
-        Task<bool> ExecuteAsync(HttpListenerContext context);
+        Task<bool> Execute(HttpListenerContext context);
     }
 }

@@ -19,6 +19,7 @@ namespace HTTPServer
         public AsyncServer(params string[] prefixes)
         {
             _listener = new HttpListener();
+            _listener.AuthenticationSchemes = AuthenticationSchemes.Anonymous;
             foreach (string s in prefixes)
                 _listener.Prefixes.Add(s);
 
@@ -26,16 +27,22 @@ namespace HTTPServer
             {
                 new RouteMatchAction
                 {
+                    MatchString = "time",
+                    MatchRule   = RouteMatch.RouteMatchRule.Basic,
+                    Priority    = int.MaxValue,
+                    ActionAsync = GetTime
+                },
+                new RouteMatchAction
+                {
                     MatchString = "info",
                     MatchRule   = RouteMatch.RouteMatchRule.Basic,
                     Priority    = int.MaxValue,
-                    IsAsync     = true,
                     ActionAsync = GetInfo
                 }
             };
         }
 
-        public async void Start()
+        public async Task Start()
         {
             Routes = Routes.OrderBy((r) => r.Priority).ToList();
 
@@ -43,18 +50,38 @@ namespace HTTPServer
 
             BootTime = DateTime.UtcNow.ToUniversalTime();
 
+            /*//#pragma warning disable 4014
+            while (_listener != null && _listener.IsListening)
+            {
+                await _listener.GetContextAsync().ContinueWith(async (t) => {
+                    var ctx = await t;
+                    await ProcessContext(ctx);
+                });
+            }
+            //#pragma warning restore 4014*/
+
+            /*var n = 4;
+            for (int x = 0; x < n-1; x++)
+                Task.Run(() => Listen());
+
+            await Task.Run(() => Listen());*/
+
+            await Listen();
+        }
+
+        async Task Listen()
+        {
             try
             {
                 while (_listener != null && _listener.IsListening)
                 {
                     var httpctx = await _listener.GetContextAsync();
-#pragma warning disable CS4014
-                    ProcessContext(httpctx);
-#pragma warning restore CS4014
+                    await ProcessContext(httpctx);
                 }
-            }catch(Exception except)
+            }
+            catch (Exception except)
             {
-                Console.WriteLine("[Exception::Start]");
+                Console.WriteLine("[Exception::Listen]");
                 Console.WriteLine(except);
             }
         }
@@ -68,80 +95,28 @@ namespace HTTPServer
                 for(int x = 0; x < Routes.Count; x++)
                 {
                     var ro = Routes[x];
-                    if (ro.IsAsync)
-                    {
-                        if (await ro.ExecuteAsync(httpContext)) break;
-                    }
-                    else
-                    {
-                        if (ro.Execute(httpContext)) break;
-                    }
+                    if (await ro.Execute(httpContext)) break;
                 }
             }
             catch (Exception ex)
             {
                 //ReturnException(httpContext.Response, ex);
-                await ReturnExceptionAsync(httpContext.Response, ex);
+                await ReturnException(httpContext.Response, ex);
             }
             finally
             {
                 httpContext.Response.Close();
             }
         }
-
-        async Task GetInfo(HttpListenerContext httpContext)
-        {
-            var workers = 0;
-            var asyncio = 0;
-            ThreadPool.GetMaxThreads(out workers, out asyncio);
-
-            if(workers != Environment.ProcessorCount)
-            {
-                var pcout = Environment.ProcessorCount;
-                ThreadPool.SetMinThreads(pcout, pcout);
-                ThreadPool.SetMaxThreads(pcout, pcout);
-            }
-            
-            var now = DateTime.UtcNow.ToUniversalTime();
-
-            StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("System booted at {0}, it is now {1}\n", BootTime, now);
-            sb.AppendFormat("Thats {0} total seconds!\n", (now - BootTime).TotalSeconds);
-            sb.AppendFormat("There are {0} workers and {1} async I/O threads, there are {2} processors.\n", workers, asyncio, Environment.ProcessorCount);
-            if (workers != Environment.ProcessorCount) sb.Append("Attempted to force the thread count.\n");
-            sb.AppendFormat("There have been {0} total requests\n", total_reqs);
-
-            await WriteBuffer(httpContext.Response, sb.ToString());
-        }
-
+        
         async Task WriteBuffer(HttpListenerResponse resp, string content)
         {
             byte[] buf = Encoding.UTF8.GetBytes(content);
             resp.ContentLength64 = buf.Length;
             await resp.OutputStream.WriteAsync(buf, 0, buf.Length);
         }
-
-        void ReturnException(HttpListenerResponse resp, Exception ex)
-        {
-            try
-            {
-                resp.StatusCode = (int)HttpStatusCode.InternalServerError;
-                resp.ContentType = "application/json; charset=utf-8";
-                resp.ContentEncoding = Encoding.UTF8;
-
-                byte[] buf = Encoding.UTF8.GetBytes(ex.ToString());
-                resp.ContentLength64 = buf.Length;
-                resp.OutputStream.Write(buf, 0, buf.Length);
-            }
-            catch (Exception except)
-            {
-                //log.Error(ex);
-                Console.WriteLine("[Exception::ReturnException]");
-                Console.WriteLine(except);
-            }
-        }
-
-        async Task ReturnExceptionAsync(HttpListenerResponse resp, Exception ex)
+        
+        async Task ReturnException(HttpListenerResponse resp, Exception ex)
         {
             try
             {
@@ -158,5 +133,42 @@ namespace HTTPServer
             }
         }
 
+        bool trip = false;
+
+        async Task GetTime(HttpListenerContext httpContext)
+        {
+            //trip = true;
+            var now = DateTime.UtcNow.ToUniversalTime();
+            var nowStr = string.Format("{1}", Task.CurrentId, now.Ticks);
+            await Console.Out.WriteLineAsync(nowStr);
+            await WriteBuffer(httpContext.Response, nowStr);
+            //await Task.Delay(10);
+            //trip = false;
+        }
+
+        async Task GetInfo(HttpListenerContext httpContext)
+        {
+            var workers = 0;
+            var asyncio = 0;
+            ThreadPool.GetMaxThreads(out workers, out asyncio);
+
+            if (workers != Environment.ProcessorCount)
+            {
+                var pcout = Environment.ProcessorCount;
+                ThreadPool.SetMinThreads(pcout, pcout);
+                ThreadPool.SetMaxThreads(pcout, pcout);
+            }
+
+            var now = DateTime.UtcNow.ToUniversalTime();
+
+            StringBuilder sb = new StringBuilder();
+            sb.AppendFormat("System booted at {0}, it is now {1}\n", BootTime, now);
+            sb.AppendFormat("Thats {0} total seconds!\n", (now - BootTime).TotalSeconds);
+            sb.AppendFormat("There are {0} workers and {1} async I/O threads, there are {2} processors.\n", workers, asyncio, Environment.ProcessorCount);
+            if (workers != Environment.ProcessorCount) sb.Append("Attempted to force the thread count.\n");
+            sb.AppendFormat("There have been {0} total requests\n", total_reqs);
+
+            await WriteBuffer(httpContext.Response, sb.ToString());
+        }
     }
 }

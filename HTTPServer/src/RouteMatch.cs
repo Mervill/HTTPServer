@@ -16,26 +16,12 @@ namespace HTTPServer
         public RouteMatchRule MatchRule { get; set; }
 
         public int Priority { get; set; }
-        public bool IsAsync { get; set; }
         
-        public bool Execute(HttpListenerContext context)
+        public async Task<bool> Execute(HttpListenerContext context)
         {
             if (IsMatch(context))
             {
-                OnMatch(context);
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        public async Task<bool> ExecuteAsync(HttpListenerContext context)
-        {
-            if (IsMatch(context))
-            {
-                await OnMatchAsync(context);
+                await OnMatch(context);
                 return true;
             }
             else
@@ -56,9 +42,7 @@ namespace HTTPServer
             }
             return matches;
         }
-
-        protected abstract void OnMatch(HttpListenerContext context);
-
-        protected abstract Task OnMatchAsync(HttpListenerContext context);
+        
+        protected abstract Task OnMatch(HttpListenerContext context);
     }
 }

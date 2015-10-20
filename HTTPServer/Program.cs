@@ -10,24 +10,27 @@ namespace HTTPServer
 {
     class Program
     {
+        //http://stackoverflow.com/questions/17630506/async-at-console-app-in-c
         static void Main(string[] args)
         {
-            var pcout = Environment.ProcessorCount;
-            ThreadPool.SetMinThreads(pcout, pcout);
-            ThreadPool.SetMaxThreads(pcout, pcout);
+            var pcout = ConfigureThreadEnv();
 
             var server = new AsyncServer("http://+:8080/");
             server.Routes.Add(new RouteMatchAction {
                 MatchString = "example",
                 MatchRule = RouteMatch.RouteMatchRule.Basic,
                 Priority = int.MaxValue,
-                IsAsync = true,
                 ActionAsync = GetExample
             });
-
-            Task.Run(() => server.Start()).Wait();
+            
+            server.Start()
+                .GetAwaiter()
+                .GetResult();
+            /*MainAsync(server)
+                .GetAwaiter()
+                .GetResult();*/
         }
-
+        
         static async Task GetExample(HttpListenerContext httpContext)
         {
             var source = await SimpleGet.GetAsync("http://www.example.com");
@@ -35,6 +38,14 @@ namespace HTTPServer
             var resp = httpContext.Response;
             resp.ContentLength64 = buf.Length;
             await resp.OutputStream.WriteAsync(buf, 0, buf.Length);
+        }
+
+        static int ConfigureThreadEnv()
+        {
+            var pcout = Environment.ProcessorCount;
+            ThreadPool.SetMinThreads(pcout, pcout);
+            ThreadPool.SetMaxThreads(pcout, pcout);
+            return pcout;
         }
     }
 }
