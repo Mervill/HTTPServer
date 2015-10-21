@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace HTTPServer
 {
@@ -42,31 +43,19 @@ namespace HTTPServer
             };
         }
 
-        public async Task Start()
+        public async Task Start(int listeners)
         {
             Routes = Routes.OrderBy((r) => r.Priority).ToList();
 
             _listener.Start();
 
             BootTime = DateTime.UtcNow.ToUniversalTime();
+            
+            var tasks = new List<Task>();
+            for (int x = 0; x < listeners; x++)
+                tasks.Add(Task.Run(Listen));
 
-            /*//#pragma warning disable 4014
-            while (_listener != null && _listener.IsListening)
-            {
-                await _listener.GetContextAsync().ContinueWith(async (t) => {
-                    var ctx = await t;
-                    await ProcessContext(ctx);
-                });
-            }
-            //#pragma warning restore 4014*/
-
-            /*var n = 4;
-            for (int x = 0; x < n-1; x++)
-                Task.Run(() => Listen());
-
-            await Task.Run(() => Listen());*/
-
-            await Listen();
+            Task.WaitAll(tasks.ToArray());
         }
 
         async Task Listen()
@@ -76,7 +65,7 @@ namespace HTTPServer
                 while (_listener != null && _listener.IsListening)
                 {
                     var httpctx = await _listener.GetContextAsync();
-                    await ProcessContext(httpctx);
+                    await Task.Run(() => ProcessContext(httpctx));
                 }
             }
             catch (Exception except)
@@ -88,10 +77,8 @@ namespace HTTPServer
 
         async Task ProcessContext(HttpListenerContext httpContext)
         {
-            //total_reqs++;
             try
             {
-                //foreach (var ro in Routes)
                 for(int x = 0; x < Routes.Count; x++)
                 {
                     var ro = Routes[x];
@@ -100,7 +87,6 @@ namespace HTTPServer
             }
             catch (Exception ex)
             {
-                //ReturnException(httpContext.Response, ex);
                 await ReturnException(httpContext.Response, ex);
             }
             finally
@@ -127,23 +113,24 @@ namespace HTTPServer
             }
             catch (Exception except)
             {
-                //log.Error(ex);
                 Console.WriteLine("[Exception::ReturnException]");
                 Console.WriteLine(except);
             }
         }
 
-        bool trip = false;
+        bool race_condition_test = false;
 
         async Task GetTime(HttpListenerContext httpContext)
         {
-            //trip = true;
+            if (race_condition_test) Debug.Assert(false, "Race condition!");
+            race_condition_test = true;
+
             var now = DateTime.UtcNow.ToUniversalTime();
             var nowStr = string.Format("{1}", Task.CurrentId, now.Ticks);
             await Console.Out.WriteLineAsync(nowStr);
             await WriteBuffer(httpContext.Response, nowStr);
-            //await Task.Delay(10);
-            //trip = false;
+
+            race_condition_test = false;
         }
 
         async Task GetInfo(HttpListenerContext httpContext)

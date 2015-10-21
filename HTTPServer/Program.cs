@@ -10,10 +10,9 @@ namespace HTTPServer
 {
     class Program
     {
-        //http://stackoverflow.com/questions/17630506/async-at-console-app-in-c
         static void Main(string[] args)
         {
-            var pcout = ConfigureThreadEnv();
+            //var pcout = ConfigureThreadEnv();
 
             var server = new AsyncServer("http://+:8080/");
             server.Routes.Add(new RouteMatchAction {
@@ -22,13 +21,10 @@ namespace HTTPServer
                 Priority = int.MaxValue,
                 ActionAsync = GetExample
             });
-            
-            server.Start()
-                .GetAwaiter()
-                .GetResult();
-            /*MainAsync(server)
-                .GetAwaiter()
-                .GetResult();*/
+
+            server.Start(4);
+                //.GetAwaiter()
+                //.GetResult();
         }
         
         static async Task GetExample(HttpListenerContext httpContext)
