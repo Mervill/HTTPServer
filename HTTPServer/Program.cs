@@ -12,7 +12,11 @@ namespace HTTPServer
     {
         static void Main(string[] args)
         {
-            //var pcout = ConfigureThreadEnv();
+            var numClients = 1;
+            if (args.Length != 0)
+                numClients = int.Parse(args[0]);
+
+            var pcout = ConfigureThreadEnv();
 
             var server = new AsyncServer("http://+:8080/");
             server.Routes.Add(new RouteMatchAction {
@@ -22,7 +26,7 @@ namespace HTTPServer
                 ActionAsync = GetExample
             });
 
-            server.Start()
+            server.Start(numClients)
                 .GetAwaiter()
                 .GetResult();
         }

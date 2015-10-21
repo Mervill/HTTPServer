@@ -5,7 +5,6 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics;
 
 namespace HTTPServer
 {
@@ -45,10 +44,21 @@ namespace HTTPServer
 
         public async Task Start()
         {
+            await Start(1);
+        }
+
+        public async Task Start(int listeners)
+        {
             Routes = Routes.OrderBy((r) => r.Priority).ToList();
+
             _listener.Start();
             BootTime = DateTime.UtcNow.ToUniversalTime();
-            await Listen();
+
+            var tasks = new Task[listeners];
+            for (int x = 0; x < listeners; x++)
+                tasks[x] = Task.Run(Listen);
+
+            await Task.WhenAll(tasks);
         }
 
         async Task Listen()
@@ -113,20 +123,13 @@ namespace HTTPServer
                 Console.WriteLine(except);
             }
         }
-
-        bool race_condition_test = false;
-
+        
         async Task GetTime(HttpListenerContext httpContext)
         {
-            if (race_condition_test) Debug.Assert(false, "Race condition!");
-            race_condition_test = true;
-
             var now = DateTime.UtcNow.ToUniversalTime();
             var nowStr = string.Format("{1}", Task.CurrentId, now.Ticks);
             await Console.Out.WriteLineAsync(nowStr);
             await WriteContent(httpContext.Response, nowStr);
-            
-            race_condition_test = false;
         }
 
         async Task GetInfo(HttpListenerContext httpContext)
