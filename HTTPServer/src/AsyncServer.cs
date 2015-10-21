@@ -43,19 +43,12 @@ namespace HTTPServer
             };
         }
 
-        public async Task Start(int listeners)
+        public async Task Start()
         {
             Routes = Routes.OrderBy((r) => r.Priority).ToList();
-
             _listener.Start();
-
             BootTime = DateTime.UtcNow.ToUniversalTime();
-            
-            var tasks = new List<Task>();
-            for (int x = 0; x < listeners; x++)
-                tasks.Add(Task.Run(Listen));
-
-            Task.WaitAll(tasks.ToArray());
+            await Listen();
         }
 
         async Task Listen()
@@ -65,7 +58,10 @@ namespace HTTPServer
                 while (_listener != null && _listener.IsListening)
                 {
                     var httpctx = await _listener.GetContextAsync();
-                    await Task.Run(() => ProcessContext(httpctx));
+#pragma warning disable CS4014
+                    Task.Run(() => ProcessContext(httpctx));
+#pragma warning restore CS4014
+                    total_reqs++;
                 }
             }
             catch (Exception except)
@@ -87,7 +83,7 @@ namespace HTTPServer
             }
             catch (Exception ex)
             {
-                await ReturnException(httpContext.Response, ex);
+                await WriteExceptionResponse(httpContext.Response, ex);
             }
             finally
             {
@@ -95,21 +91,21 @@ namespace HTTPServer
             }
         }
         
-        async Task WriteBuffer(HttpListenerResponse resp, string content)
+        async Task WriteContent(HttpListenerResponse resp, string content)
         {
             byte[] buf = Encoding.UTF8.GetBytes(content);
             resp.ContentLength64 = buf.Length;
             await resp.OutputStream.WriteAsync(buf, 0, buf.Length);
         }
         
-        async Task ReturnException(HttpListenerResponse resp, Exception ex)
+        async Task WriteExceptionResponse(HttpListenerResponse resp, Exception ex)
         {
             try
             {
                 resp.StatusCode = (int)HttpStatusCode.InternalServerError;
                 resp.ContentType = "application/json; charset=utf-8";
                 resp.ContentEncoding = Encoding.UTF8;
-                await WriteBuffer(resp, ex.ToString());
+                await WriteContent(resp, ex.ToString());
             }
             catch (Exception except)
             {
@@ -128,8 +124,8 @@ namespace HTTPServer
             var now = DateTime.UtcNow.ToUniversalTime();
             var nowStr = string.Format("{1}", Task.CurrentId, now.Ticks);
             await Console.Out.WriteLineAsync(nowStr);
-            await WriteBuffer(httpContext.Response, nowStr);
-
+            await WriteContent(httpContext.Response, nowStr);
+            
             race_condition_test = false;
         }
 
@@ -155,7 +151,7 @@ namespace HTTPServer
             if (workers != Environment.ProcessorCount) sb.Append("Attempted to force the thread count.\n");
             sb.AppendFormat("There have been {0} total requests\n", total_reqs);
 
-            await WriteBuffer(httpContext.Response, sb.ToString());
+            await WriteContent(httpContext.Response, sb.ToString());
         }
     }
 }

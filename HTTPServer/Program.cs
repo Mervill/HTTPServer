@@ -22,9 +22,9 @@ namespace HTTPServer
                 ActionAsync = GetExample
             });
 
-            server.Start(4);
-                //.GetAwaiter()
-                //.GetResult();
+            server.Start()
+                .GetAwaiter()
+                .GetResult();
         }
         
         static async Task GetExample(HttpListenerContext httpContext)
